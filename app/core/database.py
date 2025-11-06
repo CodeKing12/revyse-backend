@@ -1,5 +1,5 @@
 from sqlmodel import create_engine, SQLModel
-from config import settings
+from app.core.config import settings
 
 conn_str = f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 database = create_engine(conn_str, echo=True)
