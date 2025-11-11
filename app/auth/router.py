@@ -19,7 +19,6 @@ async def signup(reg_data: models.UserRegister, session: Session = Depends(get_s
     session.add(new_profile)
     session.commit()
     return new_profile
-    print("All Users", session.exec(select(models.User)).all())
 
 
 @router.post("/token", response_model=models.UserLoginResponse)
