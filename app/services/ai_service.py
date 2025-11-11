@@ -1,6 +1,6 @@
 from openai import OpenAI
 from app.core.config import settings
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 import json
 
 
@@ -22,6 +22,25 @@ class AIService:
             "X-Title": "Revyse Study App"
         }
 
+    def _create_messages(self, system_content: str, user_content: str) -> List[Dict[str, str]]:
+        """
+        Create messages array, combining system and user messages for models that don't support system instructions.
+        Gemma models don't support system instructions, so we combine them into the user message.
+        """
+        # Check if model is Gemma or other models known not to support system instructions
+        models_without_system_support = ["gemma", "gemma-2"]
+        
+        if any(model in self.model.lower() for model in models_without_system_support):
+            # Combine system and user messages
+            combined_content = f"{system_content}\n\n{user_content}"
+            return [{"role": "user", "content": combined_content}]
+        else:
+            # Use separate system and user messages
+            return [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content}
+            ]
+
     def generate_summary(self, text: str, summary_type: str = "general") -> str:
         """Generate a summary of the provided text."""
         
@@ -32,19 +51,19 @@ class AIService:
         }
         
         prompt = prompts.get(summary_type, prompts["general"])
+        system_content = "You are an expert educational assistant that helps students understand and learn from their study materials."
+        user_content = f"{prompt}\n\n{text}"
         
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert educational assistant that helps students understand and learn from their study materials."},
-                    {"role": "user", "content": f"{prompt}\n\n{text}"}
-                ],
+                messages=self._create_messages(system_content, user_content),  # type: ignore
                 temperature=0.7,
                 max_tokens=2000,
                 extra_headers=self.extra_headers
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            return content or ""
         except Exception as e:
             raise Exception(f"Failed to generate summary: {str(e)}")
 
@@ -70,7 +89,8 @@ class AIService:
         
         type_instruction = quiz_type_instructions.get(quiz_type, quiz_type_instructions["quiz"])
         
-        prompt = f"""Based on the following educational material, generate {num_questions} {type_instruction}.
+        system_content = "You are an expert educational assessment creator. Generate high-quality, pedagogically sound questions that test understanding, not just memorization."
+        user_content = f"""Based on the following educational material, generate {num_questions} {type_instruction}.
         {difficulty_instructions}
         
         For each question, provide:
@@ -106,10 +126,7 @@ class AIService:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert educational assessment creator. Generate high-quality, pedagogically sound questions that test understanding, not just memorization."},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=self._create_messages(system_content, user_content),  # type: ignore
                 temperature=0.8,
                 max_tokens=3000,
                 response_format={"type": "json_object"},
@@ -117,7 +134,10 @@ class AIService:
             )
             
             content = response.choices[0].message.content
-            result = json.loads(content)
+            if not content:
+                return []
+                
+            result: Any = json.loads(content)
             
             # Handle both array and object with questions key
             if isinstance(result, dict) and "questions" in result:
@@ -133,7 +153,8 @@ class AIService:
     def generate_flashcards(self, text: str, num_cards: int = 20) -> List[dict]:
         """Generate flashcards from the provided text."""
         
-        prompt = f"""Based on the following educational material, generate {num_cards} flashcards for effective learning.
+        system_content = "You are an expert at creating effective study flashcards that promote active recall and spaced repetition."
+        user_content = f"""Based on the following educational material, generate {num_cards} flashcards for effective learning.
         
         Each flashcard should have:
         1. Front: A clear question, term, or concept
@@ -162,10 +183,7 @@ class AIService:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert at creating effective study flashcards that promote active recall and spaced repetition."},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=self._create_messages(system_content, user_content),  # type: ignore
                 temperature=0.8,
                 max_tokens=2500,
                 response_format={"type": "json_object"},
@@ -173,7 +191,10 @@ class AIService:
             )
             
             content = response.choices[0].message.content
-            result = json.loads(content)
+            if not content:
+                return []
+                
+            result: Any = json.loads(content)
             
             # Handle both array and object with flashcards key
             if isinstance(result, dict) and "flashcards" in result:
@@ -191,7 +212,8 @@ class AIService:
         
         context_text = f"\nUser context: {user_context}" if user_context else ""
         
-        prompt = f"""Generate a short, motivational message to encourage a student to review their study materials today.
+        system_content = "You are a supportive study coach who helps motivate students."
+        user_content = f"""Generate a short, motivational message to encourage a student to review their study materials today.
         The message should be:
         - Positive and encouraging
         - Brief (1-2 sentences)
@@ -205,22 +227,21 @@ class AIService:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a supportive study coach who helps motivate students."},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=self._create_messages(system_content, user_content),  # type: ignore
                 temperature=0.9,
                 max_tokens=150,
                 extra_headers=self.extra_headers
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            return content or "Keep up the great work with your studies today!"
         except Exception as e:
             raise Exception(f"Failed to generate daily nudge: {str(e)}")
 
     def generate_orientation_message(self, academic_level: str) -> str:
         """Generate an orientation message for new users."""
         
-        prompt = f"""Generate a welcoming orientation message for a new user at the {academic_level} level joining an AI-powered study platform.
+        system_content = "You are a friendly onboarding assistant for an educational platform."
+        user_content = f"""Generate a welcoming orientation message for a new user at the {academic_level} level joining an AI-powered study platform.
         
         The message should:
         - Welcome them warmly
@@ -235,15 +256,13 @@ class AIService:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a friendly onboarding assistant for an educational platform."},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=self._create_messages(system_content, user_content),  # type: ignore
                 temperature=0.8,
                 max_tokens=250,
                 extra_headers=self.extra_headers
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            return content or f"Welcome to Revyse! We're excited to help you succeed at the {academic_level} level."
         except Exception as e:
             raise Exception(f"Failed to generate orientation message: {str(e)}")
 
