@@ -51,7 +51,10 @@ An AI-powered study application backend built with FastAPI that helps students a
 
 - **Framework**: FastAPI 0.120.2
 - **Database**: SQLModel with PostgreSQL/SQLite support
-- **AI Integration**: OpenAI GPT-4o-mini for text generation
+- **AI Integration**: OpenRouter (supports multiple AI models)
+  - **Default Model**: Google Gemini Flash 1.5 (cost-effective)
+  - **Supported Models**: OpenAI GPT-4, Anthropic Claude, Google Gemini, and 100+ other models
+  - **Switchable**: Change AI models anytime via configuration
 - **File Processing**: 
   - PyPDF2 for PDF text extraction
   - python-docx for DOCX text extraction
@@ -65,32 +68,34 @@ An AI-powered study application backend built with FastAPI that helps students a
 - `POST /auth/token` - Login and get access token
 - `GET /auth/me` - Get current user profile
 
-### Materials
-- `POST /materials/upload` - Upload a study material file
-- `GET /materials/` - List all materials for current user
-- `GET /materials/{id}` - Get a specific material
-- `DELETE /materials/{id}` - Delete a material
+### Courses (Primary Structure)
+- `POST /courses/` - Create a new course
+- `GET /courses/` - List all courses
+- `GET /courses/{id}` - Get a specific course
+- `PUT /courses/{id}` - Update a course
+- `DELETE /courses/{id}` - Delete a course
 
-### Summaries
-- `POST /summaries/` - Generate a summary for a material
-- `GET /summaries/material/{material_id}` - Get all summaries for a material
-- `GET /summaries/{id}` - Get a specific summary
-- `DELETE /summaries/{id}` - Delete a summary
+### Course Materials
+- `POST /courses/{id}/materials/upload` - Upload material to a course
+- `GET /courses/{id}/materials/` - List all materials in a course
+- `GET /courses/{id}/materials/{material_id}` - Get specific course material
 
-### Quizzes
-- `POST /quizzes/` - Generate a quiz from materials
-- `GET /quizzes/` - List all quizzes
-- `GET /quizzes/{id}` - Get a specific quiz
+### Course Summaries
+- `POST /courses/{id}/summaries/` - Generate summary for course material
+- `GET /courses/{id}/summaries/` - List all summaries for course materials
+- `GET /courses/{id}/materials/{material_id}/summaries/` - Get summaries for specific material
+
+### Course Quizzes
+- `POST /courses/{id}/quizzes/` - Generate quiz from course materials
+- `GET /courses/{id}/quizzes/` - List all quizzes for a course
 - `POST /quizzes/submit` - Submit quiz answers and get graded
 - `GET /quizzes/submissions/{id}` - Get submission details
-- `DELETE /quizzes/{id}` - Delete a quiz
 
-### Flashcards
-- `POST /flashcards/` - Generate flashcards from materials
-- `GET /flashcards/` - List all flashcards (optionally filter by material)
-- `GET /flashcards/{id}` - Get a specific flashcard
+### Course Flashcards
+- `POST /courses/{id}/flashcards/` - Generate flashcards from course materials
+- `GET /courses/{id}/flashcards/` - List all flashcards for course materials
+- `GET /courses/{id}/materials/{material_id}/flashcards/` - Get flashcards for specific material
 - `POST /flashcards/{id}/review` - Record a flashcard review
-- `DELETE /flashcards/{id}` - Delete a flashcard
 
 ### Reading Streaks
 - `GET /streaks/` - Get current reading streak
@@ -129,8 +134,13 @@ DB_PASSWORD=your_password
 SECRET_KEY=your-secret-key-here
 HASH_SALT=your-salt-here
 
-# AI Service
-OPENAI_API_KEY=your-openai-api-key
+# AI Service - Using OpenRouter for multi-model support
+OPENROUTER_API_KEY=your-openrouter-api-key
+
+# AI Model Selection (examples)
+AI_MODEL=google/gemini-flash-1.5  # Default (cost-effective)
+# AI_MODEL=openai/gpt-4o-mini
+# AI_MODEL=anthropic/claude-3-haiku
 
 # File Storage
 UPLOAD_DIR=uploads

@@ -27,19 +27,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     title="Revyse API",
-    description="AI-powered study application backend",
+    description="AI-powered study application backend with course organization",
     version="1.0.0"
 )
 
 # Include routers
 app.include_router(auth_router.router)
-app.include_router(courses_router.router)  # Course-based endpoints (new structure)
-app.include_router(materials_router.router)  # Legacy material endpoints
-app.include_router(summaries_router.router)  # Legacy summary endpoints
-app.include_router(quizzes_router.router)  # Legacy quiz endpoints
-app.include_router(flashcards_router.router)  # Legacy flashcard endpoints
-app.include_router(streaks_router.router)
-app.include_router(nudges_router.router)
+app.include_router(courses_router.router)  # Course-based endpoints (primary)
+app.include_router(streaks_router.router)  # Reading streaks
+app.include_router(nudges_router.router)   # Daily nudges
+
+# Legacy endpoints - hidden from docs for cleaner API documentation
+app.include_router(materials_router.router, include_in_schema=False)
+app.include_router(summaries_router.router, include_in_schema=False)
+app.include_router(quizzes_router.router, include_in_schema=False)
+app.include_router(flashcards_router.router, include_in_schema=False)
 
 if __name__ == "__main__":
     uvicorn.run("app.core.main:app", reload=True)

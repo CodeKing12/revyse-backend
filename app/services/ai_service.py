@@ -6,10 +6,21 @@ import json
 
 class AIService:
     def __init__(self):
-        if not settings.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY not found in settings")
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = "gpt-4o-mini"  # Using cost-effective model
+        if not settings.OPENROUTER_API_KEY:
+            raise ValueError("OPENROUTER_API_KEY not found in settings")
+        
+        # OpenRouter uses OpenAI-compatible API
+        self.client = OpenAI(
+            api_key=settings.OPENROUTER_API_KEY,
+            base_url="https://openrouter.ai/api/v1"
+        )
+        self.model = settings.AI_MODEL
+        
+        # Extra headers for OpenRouter
+        self.extra_headers = {
+            "HTTP-Referer": "https://github.com/CodeKing12/revyse-backend",
+            "X-Title": "Revyse Study App"
+        }
 
     def generate_summary(self, text: str, summary_type: str = "general") -> str:
         """Generate a summary of the provided text."""
@@ -30,7 +41,8 @@ class AIService:
                     {"role": "user", "content": f"{prompt}\n\n{text}"}
                 ],
                 temperature=0.7,
-                max_tokens=2000
+                max_tokens=2000,
+                extra_headers=self.extra_headers
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -100,7 +112,8 @@ class AIService:
                 ],
                 temperature=0.8,
                 max_tokens=3000,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                extra_headers=self.extra_headers
             )
             
             content = response.choices[0].message.content
@@ -155,7 +168,8 @@ class AIService:
                 ],
                 temperature=0.8,
                 max_tokens=2500,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                extra_headers=self.extra_headers
             )
             
             content = response.choices[0].message.content
@@ -196,7 +210,8 @@ class AIService:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.9,
-                max_tokens=150
+                max_tokens=150,
+                extra_headers=self.extra_headers
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -225,7 +240,8 @@ class AIService:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.8,
-                max_tokens=250
+                max_tokens=250,
+                extra_headers=self.extra_headers
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -233,4 +249,4 @@ class AIService:
 
 
 # Global instance
-ai_service = AIService() if settings.OPENAI_API_KEY else None
+ai_service = AIService() if settings.OPENROUTER_API_KEY else None
