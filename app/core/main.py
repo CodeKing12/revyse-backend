@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.openapi.docs import get_redoc_html
 from app.core.database import create_tables
 from app.auth import router as auth_router
+from app.courses import courses_router
 from app.materials import router as materials_router
 from app.materials import summaries_router
 from app.materials import quizzes_router
@@ -32,10 +33,11 @@ app = FastAPI(
 
 # Include routers
 app.include_router(auth_router.router)
-app.include_router(materials_router.router)
-app.include_router(summaries_router.router)
-app.include_router(quizzes_router.router)
-app.include_router(flashcards_router.router)
+app.include_router(courses_router.router)  # Course-based endpoints (new structure)
+app.include_router(materials_router.router)  # Legacy material endpoints
+app.include_router(summaries_router.router)  # Legacy summary endpoints
+app.include_router(quizzes_router.router)  # Legacy quiz endpoints
+app.include_router(flashcards_router.router)  # Legacy flashcard endpoints
 app.include_router(streaks_router.router)
 app.include_router(nudges_router.router)
 

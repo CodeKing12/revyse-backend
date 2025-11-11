@@ -1,7 +1,6 @@
+# This file is deprecated - use courses_router.py instead
 from fastapi import APIRouter
 
 router = APIRouter()
 
-@router.post("/uploads/material")
-async def upload_material():
-    pass
+# Empty router - all course functionality moved to courses_router.py

@@ -24,10 +24,11 @@ async def upload_material(
     title: str = None,
     description: str = None,
     material_type: MaterialType = MaterialType.OTHER,
+    course_id: int = None,  # Optional course assignment
     current_user: CurrentActiveUser = None,
     session: Session = Depends(get_session)
 ):
-    """Upload a study material file (PDF, DOCX, TXT)."""
+    """Upload a study material file (PDF, DOCX, TXT). Can optionally be assigned to a course."""
     
     # Validate file type
     allowed_extensions = {'.pdf', '.docx', '.doc', '.txt'}
@@ -38,6 +39,20 @@ async def upload_material(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File type {file_ext} not supported. Allowed types: {', '.join(allowed_extensions)}"
         )
+    
+    # If course_id provided, verify it belongs to user
+    if course_id is not None:
+        from app.materials.models import Course
+        course_stmt = select(Course).where(
+            Course.id == course_id,
+            Course.user_id == current_user.id
+        )
+        course = session.exec(course_stmt).first()
+        if not course:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Course not found"
+            )
     
     # Create upload directory if it doesn't exist
     upload_dir = settings.UPLOAD_DIR
@@ -77,7 +92,8 @@ async def upload_material(
         file_type=file_ext.lstrip('.'),
         material_type=material_type,
         extracted_text=extracted_text,
-        user_id=current_user.id
+        user_id=current_user.id,
+        course_id=course_id  # Can be None for miscellaneous materials
     )
     
     session.add(material)

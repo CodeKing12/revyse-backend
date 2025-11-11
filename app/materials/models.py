@@ -12,6 +12,18 @@ class MaterialType(str, Enum):
     OTHER = "other"
 
 
+class Course(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
+    description: Optional[str] = None
+    user_id: int = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    materials: List["Material"] = Relationship(back_populates="course")
+
+
 class Material(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
@@ -21,10 +33,12 @@ class Material(SQLModel, table=True):
     material_type: MaterialType
     extracted_text: Optional[str] = None
     user_id: int = Field(foreign_key="user.id")
+    course_id: Optional[int] = Field(default=None, foreign_key="course.id")  # Can be None for miscellaneous materials
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
+    course: Optional[Course] = Relationship(back_populates="materials")
     summaries: List["Summary"] = Relationship(back_populates="material")
     flashcards: List["FlashCard"] = Relationship(back_populates="material")
 
@@ -168,10 +182,29 @@ class DailyNudge(SQLModel, table=True):
 
 
 # Pydantic models for API requests/responses
+class CourseCreate(SQLModel):
+    title: str
+    description: Optional[str] = None
+
+
+class CourseUpdate(SQLModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+
+class CourseResponse(SQLModel):
+    id: int
+    title: str
+    description: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
 class MaterialCreate(SQLModel):
     title: str
     description: Optional[str] = None
     material_type: MaterialType
+    course_id: Optional[int] = None  # Optional course assignment
 
 
 class MaterialResponse(SQLModel):
@@ -180,6 +213,7 @@ class MaterialResponse(SQLModel):
     description: Optional[str]
     file_type: str
     material_type: MaterialType
+    course_id: Optional[int]
     created_at: datetime
 
 
