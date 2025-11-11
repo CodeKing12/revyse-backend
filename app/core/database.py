@@ -7,7 +7,8 @@ if all([settings.DB_USER, settings.DB_PASSWORD, settings.DB_HOST, settings.DB_PO
     database = create_engine(conn_str, echo=True)
 else:
     # Use a dummy in-memory SQLite database for development/testing
-    database = create_engine("sqlite:///./test.db", echo=True)
+    conn_str = "sqlite:///./test.db"
+    database = create_engine(conn_str, echo=True)
 
 def create_tables():
     SQLModel.metadata.create_all(database)

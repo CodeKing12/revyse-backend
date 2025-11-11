@@ -11,9 +11,16 @@ from app.materials import streaks_router
 from app.materials import nudges_router
 import uvicorn
 
+# Create tables immediately when module is imported
+# This ensures tables exist for TestClient as well
+try:
+    create_tables()
+except Exception as e:
+    print(f"Warning: Could not create tables on startup: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_tables()
+    # Tables already created above
     yield
 
 app = FastAPI(
