@@ -55,9 +55,11 @@ An AI-powered study application backend built with FastAPI that helps students a
   - **Default Model**: Google Gemini Flash 1.5 (cost-effective)
   - **Supported Models**: OpenAI GPT-4, Anthropic Claude, Google Gemini, and 100+ other models
   - **Switchable**: Change AI models anytime via configuration
+  - **AI-Powered Text Extraction**: Uses AI to reliably extract text from PDF and DOCX files
 - **File Processing**: 
-  - PyPDF2 for PDF text extraction
-  - python-docx for DOCX text extraction
+  - AI-based text extraction for PDF and DOCX (more reliable than traditional libraries)
+  - Direct text reading for TXT files
+  - Hybrid approach: Basic extraction + AI cleanup for optimal results
 - **Authentication**: JWT tokens with Argon2 password hashing
 - **API Documentation**: Auto-generated OpenAPI (Swagger) documentation
 

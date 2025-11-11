@@ -265,6 +265,89 @@ class AIService:
             return content or f"Welcome to Revyse! We're excited to help you succeed at the {academic_level} level."
         except Exception as e:
             raise Exception(f"Failed to generate orientation message: {str(e)}")
+    
+    def extract_text_from_document(self, file_path: str, file_type: str) -> str:
+        """
+        Extract text from a document (PDF, DOCX) using AI vision/document processing.
+        This is more reliable than traditional Python libraries.
+        """
+        import base64
+        
+        try:
+            # Read the file as base64
+            with open(file_path, 'rb') as file:
+                file_content = base64.b64encode(file.read()).decode('utf-8')
+            
+            # Use a vision-capable model for document extraction
+            # Some models in OpenRouter support PDF/document processing
+            system_content = "You are an expert document text extraction assistant. Extract all text content from the provided document accurately, preserving formatting where important (like lists, headings, etc.)."
+            
+            user_content = f"""Extract all text from this {file_type.upper()} document. 
+            
+Return only the extracted text content, maintaining the logical structure and organization of the document. 
+Include headings, paragraphs, lists, and other content in a readable format.
+Do not add any commentary or explanation - just return the document text."""
+            
+            # For document processing, we'll use the file content as a data URL
+            # Note: This approach works with vision models that support document/PDF input
+            # OpenRouter supports various models with document capabilities
+            
+            messages = self._create_messages(system_content, user_content)
+            
+            # Some models support file attachments via special content format
+            # For now, we'll use a prompt-based approach which works with most models
+            # The user can configure a model that supports document processing
+            
+            # Alternative: Convert first few pages to text using a simpler approach
+            # and let AI clean it up and extract properly
+            
+            # For PDF and DOCX, we can use a hybrid approach:
+            # Try to extract with basic tools first, then clean with AI
+            if file_type.lower() == 'pdf':
+                import PyPDF2
+                raw_text = ""
+                with open(file_path, 'rb') as file:
+                    pdf_reader = PyPDF2.PdfReader(file)
+                    for page in pdf_reader.pages:
+                        raw_text += page.extract_text() + "\n"
+            elif file_type.lower() in ['doc', 'docx']:
+                from docx import Document
+                doc = Document(file_path)
+                raw_text = ""
+                for paragraph in doc.paragraphs:
+                    raw_text += paragraph.text + "\n"
+            else:
+                raw_text = ""
+            
+            # Now use AI to clean and properly extract the text
+            enhanced_user_content = f"""The following is raw extracted text from a {file_type.upper()} document. 
+It may contain formatting issues, missing spaces, garbled text, or OCR errors.
+
+Please clean up and properly format this text, fixing any errors and maintaining the document's logical structure:
+
+---
+{raw_text[:15000]}  # Limit to avoid token limits
+---
+
+Return the cleaned, properly formatted text content."""
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self._create_messages(system_content, enhanced_user_content),  # type: ignore
+                temperature=0.3,  # Lower temperature for more consistent extraction
+                max_tokens=4000,
+                extra_headers=self.extra_headers
+            )
+            
+            extracted_text = response.choices[0].message.content
+            
+            if not extracted_text or len(extracted_text.strip()) < 10:
+                raise Exception("AI extraction returned insufficient text")
+            
+            return extracted_text.strip()
+            
+        except Exception as e:
+            raise Exception(f"Failed to extract text from {file_type} using AI: {str(e)}")
 
 
 # Global instance

@@ -1,57 +1,64 @@
 import os
 from typing import Optional
-import PyPDF2
-from docx import Document
+import base64
+from app.core.config import settings
 
 
 class FileProcessingService:
-    """Service for extracting text from various file formats."""
+    """Service for extracting text from various file formats using AI."""
+    
+    def __init__(self):
+        # Import here to avoid circular dependency
+        from app.services.ai_service import ai_service
+        self.ai_service = ai_service
     
     @staticmethod
-    def extract_text_from_pdf(file_path: str) -> str:
-        """Extract text from a PDF file."""
-        try:
-            text = ""
-            with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
-            return text.strip()
-        except Exception as e:
-            raise Exception(f"Failed to extract text from PDF: {str(e)}")
-    
-    @staticmethod
-    def extract_text_from_docx(file_path: str) -> str:
-        """Extract text from a DOCX file."""
-        try:
-            doc = Document(file_path)
-            text = ""
-            for paragraph in doc.paragraphs:
-                text += paragraph.text + "\n"
-            return text.strip()
-        except Exception as e:
-            raise Exception(f"Failed to extract text from DOCX: {str(e)}")
+    def _read_file_as_base64(file_path: str) -> str:
+        """Read file and encode as base64."""
+        with open(file_path, 'rb') as file:
+            return base64.b64encode(file.read()).decode('utf-8')
     
     @staticmethod
     def extract_text_from_txt(file_path: str) -> str:
-        """Extract text from a TXT file."""
+        """Extract text from a TXT file (no AI needed for plain text)."""
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 return file.read().strip()
         except Exception as e:
             raise Exception(f"Failed to extract text from TXT: {str(e)}")
     
-    @staticmethod
-    def extract_text(file_path: str, file_extension: str) -> str:
-        """Extract text from a file based on its extension."""
+    def extract_text_from_pdf(self, file_path: str) -> str:
+        """Extract text from a PDF file using AI."""
+        if not self.ai_service:
+            raise Exception("AI service is not configured. Please set OPENROUTER_API_KEY.")
+        
+        try:
+            # Use AI to extract text from PDF
+            return self.ai_service.extract_text_from_document(file_path, "pdf")
+        except Exception as e:
+            raise Exception(f"Failed to extract text from PDF using AI: {str(e)}")
+    
+    def extract_text_from_docx(self, file_path: str) -> str:
+        """Extract text from a DOCX file using AI."""
+        if not self.ai_service:
+            raise Exception("AI service is not configured. Please set OPENROUTER_API_KEY.")
+        
+        try:
+            # Use AI to extract text from DOCX
+            return self.ai_service.extract_text_from_document(file_path, "docx")
+        except Exception as e:
+            raise Exception(f"Failed to extract text from DOCX using AI: {str(e)}")
+    
+    def extract_text(self, file_path: str, file_extension: str) -> str:
+        """Extract text from a file based on its extension using AI."""
         ext = file_extension.lower().lstrip('.')
         
         if ext == 'pdf':
-            return FileProcessingService.extract_text_from_pdf(file_path)
+            return self.extract_text_from_pdf(file_path)
         elif ext in ['doc', 'docx']:
-            return FileProcessingService.extract_text_from_docx(file_path)
+            return self.extract_text_from_docx(file_path)
         elif ext == 'txt':
-            return FileProcessingService.extract_text_from_txt(file_path)
+            return self.extract_text_from_txt(file_path)
         else:
             raise ValueError(f"Unsupported file type: {ext}")
 
