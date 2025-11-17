@@ -5,7 +5,7 @@ from app.core.config import settings
 
 
 class FileProcessingService:
-    """Service for extracting text from various file formats using AI."""
+    """Service for extracting text from various file formats using ONLY AI (no traditional libraries)."""
     
     def __init__(self):
         # Import here to avoid circular dependency
@@ -28,29 +28,29 @@ class FileProcessingService:
             raise Exception(f"Failed to extract text from TXT: {str(e)}")
     
     def extract_text_from_pdf(self, file_path: str) -> str:
-        """Extract text from a PDF file using AI."""
+        """Extract text from a PDF file using ONLY AI (no PyPDF2 or other libraries)."""
         if not self.ai_service:
             raise Exception("AI service is not configured. Please set OPENROUTER_API_KEY.")
         
         try:
-            # Use AI to extract text from PDF
+            # Use pure AI to extract text from PDF
             return self.ai_service.extract_text_from_document(file_path, "pdf")
         except Exception as e:
             raise Exception(f"Failed to extract text from PDF using AI: {str(e)}")
     
     def extract_text_from_docx(self, file_path: str) -> str:
-        """Extract text from a DOCX file using AI."""
+        """Extract text from a DOCX file using ONLY AI (no python-docx or other libraries)."""
         if not self.ai_service:
             raise Exception("AI service is not configured. Please set OPENROUTER_API_KEY.")
         
         try:
-            # Use AI to extract text from DOCX
+            # Use pure AI to extract text from DOCX
             return self.ai_service.extract_text_from_document(file_path, "docx")
         except Exception as e:
             raise Exception(f"Failed to extract text from DOCX using AI: {str(e)}")
     
     def extract_text(self, file_path: str, file_extension: str) -> str:
-        """Extract text from a file based on its extension using AI."""
+        """Extract text from a file based on its extension. Uses ONLY AI for PDF/DOCX."""
         ext = file_extension.lower().lstrip('.')
         
         if ext == 'pdf':

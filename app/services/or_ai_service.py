@@ -1,0 +1,426 @@
+from openai import OpenAI
+from app.core.config import settings
+from typing import List, Optional, Any, Dict
+import json
+
+
+class AIService:
+    def __init__(self):
+        if not settings.OPENROUTER_API_KEY:
+            raise ValueError("OPENROUTER_API_KEY not found in settings")
+        
+        # OpenRouter uses OpenAI-compatible API
+        self.client = OpenAI(
+            api_key=settings.OPENROUTER_API_KEY,
+            base_url="https://openrouter.ai/api/v1"
+        )
+        self.model = settings.AI_MODEL
+        
+        # Extra headers for OpenRouter
+        self.extra_headers = {
+            "HTTP-Referer": "https://github.com/CodeKing12/revyse-backend",
+            "X-Title": "Revyse Study App"
+        }
+
+    def _create_messages(self, system_content: str, user_content: str) -> List[Dict[str, str]]:
+        """
+        Create messages array, combining system and user messages for models that don't support system instructions.
+        Gemma models don't support system instructions, so we combine them into the user message.
+        """
+        # Check if model is Gemma or other models known not to support system instructions
+        models_without_system_support = ["gemma", "gemma-2"]
+        
+        if any(model in self.model.lower() for model in models_without_system_support):
+            # Combine system and user messages
+            combined_content = f"{system_content}\n\n{user_content}"
+            return [{"role": "user", "content": combined_content}]
+        else:
+            # Use separate system and user messages
+            return [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content}
+            ]
+
+    def generate_summary(self, text: str, summary_type: str = "general") -> str:
+        """Generate a summary of the provided text."""
+        
+        prompts = {
+            "general": "Create a comprehensive summary of the following educational material. Focus on key concepts, main ideas, and important details:",
+            "brief": "Create a brief, concise summary of the following educational material, highlighting only the most important points:",
+            "detailed": "Create a detailed, in-depth summary of the following educational material. Include all important concepts, explanations, and examples:"
+        }
+        
+        prompt = prompts.get(summary_type, prompts["general"])
+        system_content = "You are an expert educational assistant that helps students understand and learn from their study materials."
+        user_content = f"{prompt}\n\n{text}"
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self._create_messages(system_content, user_content),  # type: ignore
+                temperature=0.7,
+                max_tokens=2000,
+                extra_headers=self.extra_headers
+            )
+            content = response.choices[0].message.content
+            return content or ""
+        except Exception as e:
+            raise Exception(f"Failed to generate summary: {str(e)}")
+
+    def generate_quiz_questions(
+        self,
+        text: str,
+        num_questions: int = 10,
+        difficulty: Optional[str] = None,
+        quiz_type: str = "quiz"
+    ) -> List[dict]:
+        """Generate quiz questions from the provided text."""
+        
+        difficulty_instructions = ""
+        if difficulty:
+            difficulty_instructions = f"Make the questions {difficulty} difficulty level."
+        
+        quiz_type_instructions = {
+            "quiz": "short quiz questions suitable for quick review",
+            "test": "test questions with moderate depth",
+            "exam": "comprehensive exam questions that test deep understanding",
+            "practice": "practice questions for skill reinforcement"
+        }
+        
+        type_instruction = quiz_type_instructions.get(quiz_type, quiz_type_instructions["quiz"])
+        
+        system_content = "You are an expert educational assessment creator. Generate high-quality, pedagogically sound questions that test understanding, not just memorization."
+        user_content = f"""Based on the following educational material, generate {num_questions} {type_instruction}.
+        {difficulty_instructions}
+        
+        For each question, provide:
+        1. The question text
+        2. Question type (multiple_choice, true_false, or short_answer)
+        3. For multiple choice: 4 options with one correct answer
+        4. For true/false: the correct answer
+        5. For short answer: a model answer
+        6. A brief explanation of the correct answer
+        7. Difficulty level (easy, medium, or hard)
+        8. Points value (1-10 based on complexity)
+        
+        Return the questions as a JSON array with this structure:
+        [
+            {{
+                "question_text": "...",
+                "question_type": "multiple_choice|true_false|short_answer",
+                "difficulty": "easy|medium|hard",
+                "points": 1-10,
+                "explanation": "...",
+                "options": [
+                    {{"text": "...", "is_correct": true/false}},
+                    ...
+                ],
+                "correct_answer": "..." (for true_false and short_answer)
+            }}
+        ]
+        
+        Educational Material:
+        {text}
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self._create_messages(system_content, user_content),  # type: ignore
+                temperature=0.8,
+                max_tokens=3000,
+                response_format={"type": "json_object"},
+                extra_headers=self.extra_headers
+            )
+            
+            content = response.choices[0].message.content
+            if not content:
+                return []
+                
+            result: Any = json.loads(content)
+            
+            # Handle both array and object with questions key
+            if isinstance(result, dict) and "questions" in result:
+                return result["questions"]
+            elif isinstance(result, list):
+                return result
+            else:
+                return []
+                
+        except Exception as e:
+            raise Exception(f"Failed to generate quiz questions: {str(e)}")
+
+    def generate_flashcards(self, text: str, num_cards: int = 20) -> List[dict]:
+        """Generate flashcards from the provided text."""
+        
+        system_content = "You are an expert at creating effective study flashcards that promote active recall and spaced repetition."
+        user_content = f"""Based on the following educational material, generate {num_cards} flashcards for effective learning.
+        
+        Each flashcard should have:
+        1. Front: A clear question, term, or concept
+        2. Back: A concise answer, definition, or explanation
+        3. Difficulty: easy, medium, or hard
+        
+        Focus on:
+        - Key concepts and definitions
+        - Important facts and relationships
+        - Critical thinking questions
+        - Application of knowledge
+        
+        Return as a JSON array with this structure:
+        [
+            {{
+                "front": "...",
+                "back": "...",
+                "difficulty": "easy|medium|hard"
+            }}
+        ]
+        
+        Educational Material:
+        {text}
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self._create_messages(system_content, user_content),  # type: ignore
+                temperature=0.8,
+                max_tokens=2500,
+                response_format={"type": "json_object"},
+                extra_headers=self.extra_headers
+            )
+            
+            content = response.choices[0].message.content
+            if not content:
+                return []
+                
+            result: Any = json.loads(content)
+            
+            # Handle both array and object with flashcards key
+            if isinstance(result, dict) and "flashcards" in result:
+                return result["flashcards"]
+            elif isinstance(result, list):
+                return result
+            else:
+                return []
+                
+        except Exception as e:
+            raise Exception(f"Failed to generate flashcards: {str(e)}")
+
+    def generate_daily_nudge(self, user_context: Optional[str] = None) -> str:
+        """Generate a motivational daily nudge for the user."""
+        
+        context_text = f"\nUser context: {user_context}" if user_context else ""
+        
+        system_content = "You are a supportive study coach who helps motivate students."
+        user_content = f"""Generate a short, motivational message to encourage a student to review their study materials today.
+        The message should be:
+        - Positive and encouraging
+        - Brief (1-2 sentences)
+        - Actionable
+        - Personalized if context is provided
+        {context_text}
+        
+        Just return the message text, nothing else.
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self._create_messages(system_content, user_content),  # type: ignore
+                temperature=0.9,
+                max_tokens=150,
+                extra_headers=self.extra_headers
+            )
+            content = response.choices[0].message.content
+            return content or "Keep up the great work with your studies today!"
+        except Exception as e:
+            raise Exception(f"Failed to generate daily nudge: {str(e)}")
+
+    def generate_orientation_message(self, academic_level: str) -> str:
+        """Generate an orientation message for new users."""
+        
+        system_content = "You are a friendly onboarding assistant for an educational platform."
+        user_content = f"""Generate a welcoming orientation message for a new user at the {academic_level} level joining an AI-powered study platform.
+        
+        The message should:
+        - Welcome them warmly
+        - Briefly explain the main features (summaries, quizzes, flashcards, reading streaks, daily nudges)
+        - Encourage them to upload their first study material
+        - Be encouraging and supportive
+        - Be 3-4 sentences long
+        
+        Just return the message text, nothing else.
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self._create_messages(system_content, user_content),  # type: ignore
+                temperature=0.8,
+                max_tokens=250,
+                extra_headers=self.extra_headers
+            )
+            content = response.choices[0].message.content
+            return content or f"Welcome to Revyse! We're excited to help you succeed at the {academic_level} level."
+        except Exception as e:
+            raise Exception(f"Failed to generate orientation message: {str(e)}")
+    
+    def extract_text_from_document(self, file_path: str, file_type: str) -> str:
+        """
+        Extract text from a document (PDF, DOCX) using ONLY AI - no traditional libraries.
+        Uses the OpenAI Files API to upload and process documents.
+        """
+        import os
+        
+        try:
+            # For OpenRouter and models that support file analysis
+            # We'll use the assistants/files API approach
+            
+            with open(file_path, 'rb') as file:
+                # Upload file to OpenAI (OpenRouter may support this)
+                try:
+                    # Try using the Files API
+                    uploaded_file = self.client.files.create(
+                        file=file,
+                        purpose='assistants'
+                    )
+                    
+                    file_id = uploaded_file.id
+                    
+                    # Use the file in a message
+                    system_content = """You are an expert document text extraction assistant. 
+Extract all text content from the provided document accurately, preserving:
+- Document structure (headings, paragraphs, lists)
+- Formatting and organization
+- All readable text from every page
+Return ONLY the extracted text - no commentary."""
+                    
+                    user_content = f"""Extract all text from the uploaded {file_type.upper()} document.
+Include all content while maintaining the document's structure and organization."""
+                    
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=self._create_messages(system_content, user_content),  # type: ignore
+                        temperature=0.2,
+                        max_tokens=4000,
+                        extra_headers={
+                            **self.extra_headers,
+                            "X-File-Id": file_id
+                        }
+                    )
+                    
+                    extracted_text = response.choices[0].message.content
+                    
+                    # Clean up uploaded file
+                    try:
+                        self.client.files.delete(file_id)
+                    except:
+                        pass
+                    
+                    if extracted_text and len(extracted_text.strip()) > 10:
+                        return extracted_text.strip()
+                    else:
+                        raise Exception("AI extraction returned insufficient text")
+                    
+                except Exception as file_api_error:
+                    # Files API not supported, try prompt-based approach with file content
+                    print(f"Files API failed: {str(file_api_error)}")
+                    
+                    # Read file content
+                    file.seek(0)
+                    file_content = file.read()
+                    
+                    # Convert to text representation that AI can process
+                    # Use a simple prompt-based approach asking AI to extract from description
+                    import base64
+                    file_base64 = base64.b64encode(file_content).decode('utf-8')
+                    
+                    # Calculate if it fits in context
+                    # Rough estimate: 1 token ≈ 4 characters
+                    estimated_tokens = len(file_base64) // 4
+                    
+                    if estimated_tokens > 900000:  # Too large for context
+                        raise Exception(f"Document is too large ({estimated_tokens} tokens estimated). Maximum supported size is ~900K tokens. Please use a smaller document or a model with larger context window.")
+                    
+                    system_content = """You are an expert document text extraction assistant.
+You will receive a document's binary content encoded in base64.
+Extract all text content accurately, preserving structure, formatting, and organization.
+Return ONLY the extracted text - no commentary."""
+                    
+                    user_content = f"""Extract all text from this {file_type.upper()} document.
+
+Document (base64 encoded):
+{file_base64}
+
+Extract the complete text:"""
+                    
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=self._create_messages(system_content, user_content),  # type: ignore
+                        temperature=0.2,
+                        max_tokens=4000,
+                        extra_headers=self.extra_headers
+                    )
+                    
+                    extracted_text = response.choices[0].message.content
+                    
+                    if not extracted_text or len(extracted_text.strip()) < 10:
+                        raise Exception("AI extraction returned insufficient text. The document may be too large, corrupted, or the AI model may not support document processing.")
+                    
+                    return extracted_text.strip()
+            
+        except Exception as e:
+            raise Exception(f"Failed to extract text from {file_type} using AI: {str(e)}")
+    
+    
+    def _merge_extracted_chunks(self, combined_text: str, file_type: str) -> str:
+        """Use AI to merge and clean up text extracted from multiple chunks."""
+        
+        # If combined text is too large, skip merging and return as-is
+        if len(combined_text) > 100000:
+            return combined_text
+        
+        system_content = """You are a text merging expert. You receive text that was extracted from a document in multiple chunks.
+
+Your task:
+1. Merge the text sections smoothly
+2. Fix any words or sentences that were split across chunk boundaries
+3. Remove duplicate content that appears at chunk boundaries
+4. Preserve all content, structure, and formatting
+5. Return the complete, merged text"""
+        
+        user_content = f"""The following text was extracted from a {file_type.upper()} document in multiple parts. Please merge it into a coherent whole, fixing any issues at the boundaries:
+
+{combined_text}
+
+Return the merged text:"""
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self._create_messages(system_content, user_content),  # type: ignore
+                temperature=0.2,
+                max_tokens=4000,
+                extra_headers=self.extra_headers
+            )
+            
+            merged_text = response.choices[0].message.content
+            return merged_text.strip() if merged_text else combined_text
+            
+        except Exception as e:
+            # If merging fails, return the unmerged text
+            print(f"Warning: Failed to merge chunks: {str(e)}")
+            return combined_text
+    
+    def _extract_large_document(self, file_path: str, file_type: str, file_content: bytes) -> str:
+        """
+        Deprecated: This method is no longer used.
+        Kept for backward compatibility but redirects to the new chunking method.
+        """
+        # Redirect to the new chunking method
+        return self.extract_text_from_document(file_path, file_type)
+
+
+# Global instance
+ai_service = AIService() if settings.OPENROUTER_API_KEY else None
