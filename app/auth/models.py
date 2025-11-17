@@ -2,16 +2,16 @@ from enum import Enum
 from sqlmodel import Field, SQLModel, Relationship
 
 class UserRole(str, Enum):
-    USER = 0
-    ADMIN = 1
-    SUPERUSER = 2
+    USER = "user"
+    ADMIN = "admin"
+    SUPERUSER = "superuser"
 
 
 class AcademicLevel(str, Enum):
-    COLLEGE = 0
-    UNIVERSITY = 1
-    MASTERS = 2
-    PROFESSOR = 3
+    COLLEGE = "college"
+    UNIVERSITY = "university"
+    MASTERS = "masters"
+    PROFESSOR = "professor"
 
 
 class UserBase(SQLModel):
