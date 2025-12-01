@@ -51,17 +51,21 @@ An AI-powered study application backend built with FastAPI that helps students a
 
 - **Framework**: FastAPI 0.120.2
 - **Database**: SQLModel with PostgreSQL/SQLite support
-- **AI Integration**: OpenRouter (supports multiple AI models)
-  - **Default Model**: Google Gemini Flash 1.5 (cost-effective)
-  - **Supported Models**: OpenAI GPT-4, Anthropic Claude, Google Gemini, and 100+ other models
-  - **Switchable**: Change AI models anytime via configuration
-  - **AI-Powered Text Extraction**: Uses AI to reliably extract text from PDF and DOCX files
-- **File Processing**: 
-  - AI-based text extraction for PDF and DOCX (more reliable than traditional libraries)
-  - Direct text reading for TXT files
-  - Hybrid approach: Basic extraction + AI cleanup for optimal results
+- **AI Integration**: Unified AI Service (v1.1.0)
+  - **Primary**: Google Gemini Direct (cheapest - $0.075/1M input tokens)
+  - **Fallback**: OpenRouter (100+ models supported)
+  - **Cost Optimizations**:
+    - Response caching (identical requests = $0)
+    - Token usage tracking
+    - Optimized prompts (fewer tokens)
+    - Batch processing support
+- **File Processing** (Cost-Optimized):
+  - Local extraction first using PyPDF2/python-docx (FREE)
+  - AI fallback only for OCR/complex documents
+  - File content caching
 - **Authentication**: JWT tokens with Argon2 password hashing
 - **API Documentation**: Auto-generated OpenAPI (Swagger) documentation
+- **Monitoring**: Admin endpoints for usage tracking and cost monitoring
 
 ## API Endpoints
 
@@ -69,6 +73,12 @@ An AI-powered study application backend built with FastAPI that helps students a
 - `POST /auth/register` - Register a new user
 - `POST /auth/token` - Login and get access token
 - `GET /auth/me` - Get current user profile
+
+### Admin & Monitoring (NEW)
+- `GET /admin/usage-stats` - View token usage, costs, cache hit rates
+- `POST /admin/clear-cache` - Clear all caches
+- `POST /admin/reset-usage-stats` - Reset usage counters
+- `GET /admin/health` - System health check
 
 ### Courses (Primary Structure)
 - `POST /courses/` - Create a new course

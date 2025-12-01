@@ -10,8 +10,9 @@ from app.materials.models import (
     Quiz, QuizCreate, QuizResponse, Question, QuestionOption, QuestionResponse,
     FlashCard, FlashCardCreate, FlashCardResponse
 )
-from app.services.file_service import file_processing_service
-from app.services.ai_service import ai_service
+# Use optimized services for cost savings
+from app.services.optimized_file_service import file_processing_service
+from app.services.unified_ai_service import ai_service
 from app.services.streak_service import streak_service
 from app.core.config import settings
 import os

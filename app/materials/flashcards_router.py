@@ -6,7 +6,8 @@ from app.auth.dependencies import CurrentActiveUser
 from app.materials.models import (
     Material, FlashCard, FlashCardCreate, FlashCardResponse
 )
-from app.services.ai_service import ai_service
+# Use optimized AI service for cost savings
+from app.services.unified_ai_service import ai_service
 from app.services.streak_service import streak_service
 from datetime import datetime
 
@@ -211,3 +212,87 @@ async def delete_flashcard(
     session.commit()
     
     return None
+
+
+@router.post("/batch", response_model=List[FlashCardResponse], status_code=status.HTTP_201_CREATED)
+async def create_flashcards_batch(
+    material_ids: List[int],
+    num_cards_per_material: int = 10,
+    current_user: CurrentActiveUser = None,
+    session: Session = Depends(get_session)
+):
+    """
+    Generate flashcards from multiple materials in a single optimized API call.
+    This is more cost-effective than generating flashcards one material at a time.
+    
+    - material_ids: List of material IDs to generate flashcards from
+    - num_cards_per_material: Number of cards to generate per material (capped at 50 total)
+    """
+    
+    if not ai_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service is not configured"
+        )
+    
+    if len(material_ids) > 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Maximum 10 materials per batch request"
+        )
+    
+    # Gather all material texts
+    materials_texts = []
+    for material_id in material_ids:
+        stmt = select(Material).where(
+            Material.id == material_id,
+            Material.user_id == current_user.id
+        )
+        material = session.exec(stmt).first()
+        
+        if not material:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Material {material_id} not found"
+            )
+        
+        if material.extracted_text:
+            materials_texts.append(material.extracted_text)
+    
+    if not materials_texts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No text content found in materials"
+        )
+    
+    # Use batch generation (single API call for all materials)
+    try:
+        flashcards_data = ai_service.generate_flashcards_batch(
+            materials_texts,
+            num_cards_per_text=num_cards_per_material
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate flashcards: {str(e)}"
+        )
+    
+    # Create flashcards
+    flashcards = []
+    for fc_data in flashcards_data:
+        flashcard = FlashCard(
+            material_id=material_ids[0] if len(material_ids) == 1 else None,
+            user_id=current_user.id,
+            front=fc_data.get("front", ""),
+            back=fc_data.get("back", ""),
+            difficulty=fc_data.get("difficulty", "medium")
+        )
+        session.add(flashcard)
+        session.commit()
+        session.refresh(flashcard)
+        flashcards.append(flashcard)
+    
+    # Update reading streak
+    streak_service.update_streak(current_user.id, session)
+    
+    return flashcards

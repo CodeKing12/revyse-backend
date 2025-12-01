@@ -3,6 +3,51 @@
 ## Overview
 Successfully implemented a comprehensive AI-powered study application backend for students across all educational levels.
 
+## 🚀 Cost Optimization Update (v1.1.0)
+
+### New Cost-Saving Features
+
+#### 1. Unified AI Service (`app/services/unified_ai_service.py`)
+- **Response Caching**: Identical requests return cached results (no API call)
+- **Token Usage Tracking**: Monitor input/output tokens and estimated costs
+- **Smart Provider Selection**: Uses Gemini direct (cheapest) first, falls back to OpenRouter
+- **Optimized Prompts**: Shorter prompts = fewer tokens = lower cost
+
+#### 2. Optimized File Processing (`app/services/optimized_file_service.py`)
+- **Local-First Extraction**: Uses PyPDF2/python-docx (FREE) before AI
+- **AI Fallback Only When Needed**: Only uses paid AI for OCR/complex documents
+- **File Content Caching**: Same file = cached text extraction
+
+#### 3. Admin Monitoring Endpoints
+- `GET /admin/usage-stats` - View token usage, costs, cache hit rates
+- `POST /admin/clear-cache` - Clear all caches
+- `POST /admin/reset-usage-stats` - Reset usage counters
+- `GET /admin/health` - System health check
+
+#### 4. Batch Processing
+- `POST /flashcards/batch` - Generate flashcards from multiple materials in ONE API call
+
+### Estimated Cost Savings
+| Feature | Before | After | Savings |
+|---------|--------|-------|---------|
+| Text Extraction | $0.001-0.01/doc | $0 (local) | 100% |
+| Summary (cached) | $0.001/request | $0 | 100% |
+| Quiz (cached) | $0.002/request | $0 | 100% |
+| Batch Flashcards | $0.002 × N | $0.002 | (N-1) × 100% |
+
+### Configuration
+```env
+# Use Gemini Direct (cheapest)
+GOOGLE_API_KEY=your_key_here
+GEMINI_MODEL=gemini-1.5-flash
+
+# Or OpenRouter (fallback)
+OPENROUTER_API_KEY=your_key_here
+AI_MODEL=google/gemini-flash-1.5
+```
+
+---
+
 ## Completed Features
 
 ### 1. Material Upload & Management ✅

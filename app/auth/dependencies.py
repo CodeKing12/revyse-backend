@@ -23,7 +23,7 @@ def verify_password(password: str, hashed_password: str):
 
 def get_user(username: str, session: Session):
     stmt = select(models.User).where(or_(models.User.username == username, models.User.email == username))
-    return session.exec(stmt).one()
+    return session.exec(stmt).first()
 
 def authenticate_user(session: Session, username: str, password: str):
     user = get_user(username, session)

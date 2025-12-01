@@ -7,8 +7,9 @@ from app.materials.models import (
     Material, MaterialCreate, MaterialResponse, MaterialType,
     Summary, SummaryCreate, SummaryResponse
 )
-from app.services.file_service import file_processing_service
-from app.services.ai_service import ai_service
+# Use optimized services for cost savings
+from app.services.optimized_file_service import file_processing_service
+from app.services.unified_ai_service import ai_service
 from app.services.streak_service import streak_service
 from app.core.config import settings
 import os

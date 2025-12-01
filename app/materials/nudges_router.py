@@ -4,7 +4,8 @@ from typing import List
 from app.core.dependencies import get_session
 from app.auth.dependencies import CurrentActiveUser
 from app.materials.models import DailyNudge, DailyNudgeResponse
-from app.services.ai_service import ai_service
+# Use optimized AI service for cost savings
+from app.services.unified_ai_service import ai_service
 from app.services.streak_service import streak_service
 from datetime import datetime
 

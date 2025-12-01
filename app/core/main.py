@@ -10,6 +10,7 @@ from app.materials import quizzes_router
 from app.materials import flashcards_router
 from app.materials import streaks_router
 from app.materials import nudges_router
+from app.admin import router as admin_router
 import uvicorn
 
 # Create tables immediately when module is imported
@@ -27,8 +28,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     title="Revyse API",
-    description="AI-powered study application backend with course organization",
-    version="1.0.0"
+    description="AI-powered study application backend with course organization. Optimized for cost efficiency.",
+    version="1.1.0"
 )
 
 # Include routers
@@ -36,6 +37,7 @@ app.include_router(auth_router.router)
 app.include_router(courses_router.router)  # Course-based endpoints (primary)
 app.include_router(streaks_router.router)  # Reading streaks
 app.include_router(nudges_router.router)   # Daily nudges
+app.include_router(admin_router)           # Admin & monitoring endpoints
 
 # Legacy endpoints - hidden from docs for cleaner API documentation
 app.include_router(materials_router.router, include_in_schema=False)

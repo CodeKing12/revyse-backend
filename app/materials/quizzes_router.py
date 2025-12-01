@@ -8,7 +8,8 @@ from app.materials.models import (
     QuizCreate, QuizResponse, QuestionResponse, QuizSubmissionCreate,
     QuizSubmissionResponse, QuestionType
 )
-from app.services.ai_service import ai_service
+# Use optimized AI service for cost savings
+from app.services.unified_ai_service import ai_service
 from app.services.streak_service import streak_service
 
 router = APIRouter(prefix="/quizzes", tags=["Quizzes"])
