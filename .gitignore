@@ -1,3 +1,7 @@
 __pycache__
 env/
-.env*
+.env
+.env.local
+uploads/
+*.db
+*.db-journal
