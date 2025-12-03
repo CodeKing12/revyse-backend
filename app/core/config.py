@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-1.5-flash"  # Most cost-effective: $0.075/1M input, $0.30/1M output
     
+    # Google Cloud Document AI (for OCR of scanned PDFs)
+    # Free tier: 1,000 pages/month
+    # Setup: https://cloud.google.com/document-ai/docs/setup
+    GOOGLE_CLOUD_PROJECT: str | None = None
+    DOCUMENT_AI_LOCATION: str = "eu"  # or "us"
+    DOCUMENT_AI_PROCESSOR_ID: str | None = None  # Create OCR processor in Cloud Console
+    
     # OpenRouter API (fallback, supports many models)
     # Get key at: https://openrouter.ai/keys
     OPENROUTER_API_KEY: str | None = None

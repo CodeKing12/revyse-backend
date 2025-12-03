@@ -35,6 +35,16 @@ except ImportError:
     TESSERACT_AVAILABLE = False
     pytesseract = None
 
+# Google Cloud Document AI
+try:
+    from google.cloud import documentai  # type: ignore
+    from google.api_core.client_options import ClientOptions  # type: ignore
+    DOCUMENT_AI_AVAILABLE = True
+except ImportError:
+    DOCUMENT_AI_AVAILABLE = False
+    documentai = None
+    ClientOptions = None
+
 class OptimizedFileService:
     """
     Cost-optimized file processing:
@@ -133,9 +143,77 @@ class OptimizedFileService:
     
     def _extract_pdf_with_ai_vision(self, file_path: str) -> str:
         """
-        Extract text from scanned PDF using AI vision capabilities.
-        Uses Gemini's vision model to read images.
-        This costs money but works without Tesseract.
+        Extract text from scanned PDF using Google Cloud Document AI.
+        Free tier: 1,000 pages/month.
+        Falls back to Gemini Vision if Document AI is not configured.
+        """
+        # Try Document AI first (preferred - more accurate and has free tier)
+        if DOCUMENT_AI_AVAILABLE and settings.GOOGLE_CLOUD_PROJECT and settings.DOCUMENT_AI_PROCESSOR_ID:
+            try:
+                return self._extract_with_document_ai(file_path)
+            except Exception as e:
+                print(f"Document AI failed, trying Gemini Vision fallback: {e}")
+        
+        # Fallback to Gemini Vision
+        return self._extract_pdf_with_gemini_vision(file_path)
+    
+    def _extract_with_document_ai(self, file_path: str) -> str:
+        """
+        Extract text using Google Cloud Document AI OCR processor.
+        Free tier: 1,000 pages/month.
+        Setup: https://cloud.google.com/document-ai/docs/setup
+        """
+        if not DOCUMENT_AI_AVAILABLE:
+            raise Exception("google-cloud-documentai not installed. Run: pip install google-cloud-documentai")
+        
+        if not settings.GOOGLE_CLOUD_PROJECT or not settings.DOCUMENT_AI_PROCESSOR_ID:
+            raise Exception(
+                "Document AI not configured. Set GOOGLE_CLOUD_PROJECT and DOCUMENT_AI_PROCESSOR_ID in .env"
+            )
+        
+        # Read the PDF file
+        with open(file_path, "rb") as f:
+            pdf_content = f.read()
+        
+        # Configure the client
+        opts = ClientOptions(
+            api_endpoint=f"{settings.DOCUMENT_AI_LOCATION}-documentai.googleapis.com"
+        )
+        client = documentai.DocumentProcessorServiceClient(client_options=opts)
+        
+        # Build the processor resource name
+        processor_name = client.processor_path(
+            settings.GOOGLE_CLOUD_PROJECT,
+            settings.DOCUMENT_AI_LOCATION,
+            settings.DOCUMENT_AI_PROCESSOR_ID
+        )
+        
+        # Create the document
+        raw_document = documentai.RawDocument(
+            content=pdf_content,
+            mime_type="application/pdf"
+        )
+        
+        # Process the document
+        request = documentai.ProcessRequest(
+            name=processor_name,
+            raw_document=raw_document
+        )
+        
+        result = client.process_document(request=request)
+        document = result.document
+        
+        # Extract text from all pages
+        if document.text:
+            print(f"Document AI extracted {len(document.text)} characters from {len(document.pages)} pages")
+            return document.text
+        
+        raise Exception("Document AI returned no text")
+    
+    def _extract_pdf_with_gemini_vision(self, file_path: str) -> str:
+        """
+        Extract text from scanned PDF using Gemini's vision model.
+        This costs money but works without Document AI setup.
         """
         from app.services.unified_ai_service import ai_service
         
@@ -202,7 +280,7 @@ class OptimizedFileService:
             return "\n\n".join(text_parts)
             
         except Exception as e:
-            raise Exception(f"AI vision OCR failed: {e}")
+            raise Exception(f"Gemini Vision OCR failed: {e}")
     
     def _extract_docx_local(self, file_path: str) -> Tuple[str, bool]:
         """
@@ -370,15 +448,33 @@ class OptimizedFileService:
     
     def get_ocr_capabilities(self) -> dict:
         """Check what OCR capabilities are available."""
+        document_ai_configured = bool(
+            DOCUMENT_AI_AVAILABLE and 
+            settings.GOOGLE_CLOUD_PROJECT and 
+            settings.DOCUMENT_AI_PROCESSOR_ID
+        )
+        local_ocr_ready = PDF2IMAGE_AVAILABLE and TESSERACT_AVAILABLE
+        
+        # Determine recommendation
+        if local_ocr_ready:
+            recommendation = "Local OCR ready (FREE, unlimited)"
+        elif document_ai_configured:
+            recommendation = "Document AI ready (FREE: 1,000 pages/month)"
+        else:
+            recommendation = (
+                "For free OCR, either:\n"
+                "1. Install Tesseract: pip install pdf2image pytesseract (+ system Tesseract)\n"
+                "2. Configure Document AI: Set GOOGLE_CLOUD_PROJECT and DOCUMENT_AI_PROCESSOR_ID"
+            )
+        
         return {
             "pdf2image_available": PDF2IMAGE_AVAILABLE,
             "pytesseract_available": TESSERACT_AVAILABLE,
-            "local_ocr_ready": PDF2IMAGE_AVAILABLE and TESSERACT_AVAILABLE,
-            "ai_vision_available": True,  # Always available if AI service configured
-            "recommendation": (
-                "Local OCR ready (FREE)" if (PDF2IMAGE_AVAILABLE and TESSERACT_AVAILABLE)
-                else "Install for free OCR: pip install pdf2image pytesseract (and Tesseract OCR)"
-            )
+            "local_ocr_ready": local_ocr_ready,
+            "document_ai_available": DOCUMENT_AI_AVAILABLE,
+            "document_ai_configured": document_ai_configured,
+            "gemini_vision_available": True,  # Fallback, always available if AI configured
+            "recommendation": recommendation
         }
 
 
